@@ -12,7 +12,7 @@ class AviationClassifier:
         self.label_encoders = {}
         self.feature_names = []
         self.current_model_name = None
-        self.models_directory = "models"  # Directory where your pickle files are stored
+        self.models_directory = "models"
         
         # Define the important features (matching frontend)
         self.important_features = [
@@ -29,7 +29,6 @@ class AviationClassifier:
             'Broad.phase.of.flight'
         ]
         
-        # Define the expected features based on your aviation dataset (23 features for your models)
         self.expected_features = [
             'Investigation.Type', 'Location', 'Country', 'Injury.Severity', 
             'Aircraft.Category', 'Make', 'Amateur.Built', 'Engine.Type', 
@@ -40,7 +39,6 @@ class AviationClassifier:
             'FAR.Description'
         ]
         
-        # Load the default model
         self.load_default_model()
 
     def load_default_model(self):
@@ -82,29 +80,24 @@ class AviationClassifier:
             with open(model_path, 'rb') as f:
                 model_data = pickle.load(f)
             
-            # Handle different pickle file structures
             if isinstance(model_data, dict):
                 self.model = model_data.get('model')
                 self.scaler = model_data.get('scaler')
                 self.label_encoders = model_data.get('label_encoders', {})
                 stored_features = model_data.get('feature_names', self.expected_features)
             else:
-                # If it's just the model
                 self.model = model_data
                 self.scaler = None
                 self.label_encoders = {}
                 stored_features = self.expected_features
 
-            # Get the number of features the model expects
             if hasattr(self.model, 'n_features_in_'):
                 expected_feature_count = self.model.n_features_in_
                 print(f"Model expects {expected_feature_count} features")
                 
-                # Use only the first n features that the model expects
                 if len(stored_features) >= expected_feature_count:
                     self.feature_names = stored_features[:expected_feature_count]
                 else:
-                    # If we don't have enough features, pad with the expected ones
                     self.feature_names = stored_features + self.expected_features[:expected_feature_count - len(stored_features)]
                     self.feature_names = self.feature_names[:expected_feature_count]
             else:
@@ -124,7 +117,6 @@ class AviationClassifier:
     def preprocess_data(self, data):
         """Preprocess the input data for prediction"""
         try:
-            # Convert to DataFrame
             if isinstance(data, dict):
                 df = pd.DataFrame([data])
             else:
@@ -134,23 +126,18 @@ class AviationClassifier:
             print(f"Input data shape: {df.shape}")
             print(f"Model expects features: {self.feature_names}")
 
-            # Create a new dataframe with all expected features
             processed_df = pd.DataFrame()
             
             for feature in self.feature_names:
                 if feature in df.columns:
-                    # Use the provided value
                     processed_df[feature] = df[feature]
                 elif feature in ['Number.of.Engines', 'Total.Fatal.Injuries', 
                                'Total.Serious.Injuries', 'Total.Minor.Injuries', 
                                'Total.Uninjured']:
-                    # Numeric features default to 0
                     processed_df[feature] = 0
                 else:
-                    # Categorical features default to 'Unknown'
                     processed_df[feature] = 'Unknown'
 
-            # Handle numeric columns
             numeric_columns = ['Number.of.Engines', 
                              'Total.Fatal.Injuries', 'Total.Serious.Injuries',
                              'Total.Minor.Injuries', 'Total.Uninjured']
@@ -159,47 +146,38 @@ class AviationClassifier:
                 if col in processed_df.columns:
                     processed_df[col] = pd.to_numeric(processed_df[col], errors='coerce').fillna(0)
 
-            # Handle categorical columns with label encoding
             categorical_columns = [col for col in processed_df.columns if col not in numeric_columns]
             
             for col in categorical_columns:
                 if col in processed_df.columns:
                     processed_df[col] = processed_df[col].astype(str).fillna('Unknown')
                     
-                    # Use existing label encoder or create a new one
                     if col in self.label_encoders:
                         le = self.label_encoders[col]
-                        # Handle unseen labels
                         unique_values = processed_df[col].unique()
                         for val in unique_values:
                             if val not in le.classes_:
-                                # Add new label to encoder classes
                                 le.classes_ = np.append(le.classes_, val)
                         try:
                             processed_df[col] = le.transform(processed_df[col])
                         except ValueError as ve:
                             print(f"Label encoding error for {col}: {ve}")
-                            # If transformation fails, create new encoder
                             le = LabelEncoder()
                             processed_df[col] = le.fit_transform(processed_df[col])
                             self.label_encoders[col] = le
                     else:
-                        # Create new label encoder
                         le = LabelEncoder()
                         processed_df[col] = le.fit_transform(processed_df[col])
                         self.label_encoders[col] = le
 
-            # Fill remaining NaN values
             processed_df = processed_df.fillna(0)
 
             print(f"Processed data shape: {processed_df.shape}")
             print(f"Processed data columns: {list(processed_df.columns)}")
 
-            # Ensure we have exactly the right number of features
             if processed_df.shape[1] != len(self.feature_names):
                 raise ValueError(f"Feature count mismatch: expected {len(self.feature_names)}, got {processed_df.shape[1]}")
 
-            # Apply scaling if available
             if self.scaler:
                 df_scaled = self.scaler.transform(processed_df)
                 print("Applied scaling to data")
@@ -223,15 +201,12 @@ class AviationClassifier:
             print(f"Making prediction with model: {self.current_model_name}")
             print(f"Input data: {data}")
 
-            # Preprocess the data
             processed_data = self.preprocess_data(data)
             print(f"Processed data shape: {processed_data.shape}")
 
-            # Make prediction
             prediction = self.model.predict(processed_data)
             print(f"Raw prediction: {prediction}")
-            
-            # Get prediction probabilities if available
+
             try:
                 prediction_proba = self.model.predict_proba(processed_data)
                 confidence = np.max(prediction_proba) * 100
@@ -241,7 +216,6 @@ class AviationClassifier:
                 print(f"Could not get prediction probabilities: {prob_error}")
                 confidence = 0
 
-            # Convert prediction to readable format
             if hasattr(prediction, 'tolist'):
                 prediction = prediction.tolist()
             

@@ -13,13 +13,11 @@ def proxy_api(path):
     """Proxy API requests to Flask backend"""
     try:
         url = f"{FLASK_API_URL}/api/{path}"
-        
-        # Forward the request to Flask backend
+
         if request.method == 'GET':
             resp = requests.get(url, params=request.args)
         elif request.method == 'POST':
             if request.files:
-                # Handle file uploads
                 files = {}
                 for key, file in request.files.items():
                     files[key] = (file.filename, file.stream, file.content_type)
@@ -30,8 +28,7 @@ def proxy_api(path):
             resp = requests.put(url, json=request.get_json(), params=request.args)
         elif request.method == 'DELETE':
             resp = requests.delete(url, params=request.args)
-        
-        # Create response
+
         response = Response(
             resp.content,
             status=resp.status_code,

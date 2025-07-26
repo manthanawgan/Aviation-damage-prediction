@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Test script for the Aviation Classifier
 Run this to test if your models are loading correctly

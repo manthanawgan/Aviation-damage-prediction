@@ -68,15 +68,16 @@ const App = () => {
     }
   }, [currentPage, loadFeatures, loadAvailableModels]);
 
-  const handleInputChange = (e) => {
+  // Fixed input change handler - removed preventDefault to allow typing
+  const handleInputChange = useCallback((e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
-  };
+  }, []);
 
-  const handleModelChange = async (e) => {
+  const handleModelChange = useCallback(async (e) => {
     const modelName = e.target.value;
     setLoading(true);
     try {
@@ -94,10 +95,12 @@ const App = () => {
       setError('Failed to switch model');
     }
     setLoading(false);
-  };
+  }, [API_BASE]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    e.stopPropagation();
+    
     setLoading(true);
     setError(null);
     setPrediction(null);
@@ -127,6 +130,8 @@ const App = () => {
 
   const handleFileUpload = async (e) => {
     e.preventDefault();
+    e.stopPropagation();
+    
     if (!csvFile) {
       setError('Please select a CSV file');
       return;
@@ -159,7 +164,12 @@ const App = () => {
     setLoading(false);
   };
 
-  const renderFormField = (feature) => {
+  // Fixed file input handler
+  const handleFileChange = useCallback((e) => {
+    setCsvFile(e.target.files[0]);
+  }, []);
+
+  const renderFormField = useCallback((feature) => {
     const selectFields = {
       'Investigation.Type': ['Accident', 'Incident'],
       'Injury.Severity': ['Fatal', 'Serious', 'Minor', 'None', 'Unavailable'],
@@ -197,50 +207,54 @@ const App = () => {
         placeholder={`Enter ${feature}`}
       />
     );
-  };
+  }, [formData, handleInputChange]);
 
   // Landing Page Component
   const LandingPage = () => (
     <div className="App">
       <header className="App-header">
-        <h1>🛩️ AviPredict</h1>
+        <h1>🛩️ AeroGuard</h1>
         <p>Advanced Aviation Damage Prediction with AI</p>
       </header>
 
       <div className="container">
         {/* Features Section */}
         <div className="prediction-section">
-          <h3>🎯 Powerful AI Features</h3>
+          <h3>Powerful AI Features</h3>
           <div className="form-grid">
             <div className="feature-card">
-              <h4>🧠 Smart Analysis</h4>
+              <h4>Smart Analysis</h4>
               <p>Advanced machine learning algorithms analyze multiple factors for accurate predictions</p>
             </div>
             <div className="feature-card">
-              <h4>📊 Real-Time Processing</h4>
+              <h4>Real-Time Processing</h4>
               <p>Get instant predictions for single incidents or batch process multiple records</p>
             </div>
             <div className="feature-card">
-              <h4>🛡️ Multiple Models</h4>
+              <h4>Multiple Models</h4>
               <p>Switch between different trained models to compare results</p>
             </div>
             <div className="feature-card">
-              <h4>📁 Batch Processing</h4>
+              <h4>Batch Processing</h4>
               <p>Upload CSV files and get comprehensive predictions for entire datasets</p>
             </div>
           </div>
           
           <button
-            onClick={() => setCurrentPage('prediction')}
+            onClick={(e) => {
+              e.preventDefault();
+              setCurrentPage('prediction');
+            }}
             className="btn btn-primary"
+            type="button" // Explicitly set button type
           >
-            🚀 Start Prediction
+            Start Prediction
           </button>
         </div>
 
         {/* Stats Section */}
         <div className="prediction-section">
-          <h3>📈 Platform Statistics</h3>
+          <h3>Platform Statistics</h3>
           <div className="form-grid">
             <div className="stat-card">
               <div className="stat-number">98.5%</div>
@@ -269,12 +283,16 @@ const App = () => {
     <div className="App">
       <header className="App-header">
         <button
-          onClick={() => setCurrentPage('landing')}
+          onClick={(e) => {
+            e.preventDefault();
+            setCurrentPage('landing');
+          }}
           className="back-button"
+          type="button" // Explicitly set button type
         >
           ← Back to Home
         </button>
-        <h1>🛩️ AviPredict</h1>
+        <h1>AeroGuard</h1>
         <p>Aviation Damage Prediction Platform</p>
       </header>
 
@@ -282,13 +300,14 @@ const App = () => {
         {/* Model Selection */}
         {availableModels.length > 0 && (
           <div className="model-selection">
-            <h3>🎛️ Select Model</h3>
+            <h3>Select Model</h3>
             <div className="form-group">
               <select 
                 value={currentModel} 
                 onChange={handleModelChange}
                 className="form-control"
                 disabled={loading}
+                onClick={(e) => e.stopPropagation()}
               >
                 {availableModels.map(model => (
                   <option key={model} value={model}>{model}</option>
@@ -306,8 +325,8 @@ const App = () => {
         <div className="grid-container">
           {/* Single Prediction */}
           <div className="prediction-section">
-            <h3>🎯 Single Prediction</h3>
-            <form onSubmit={handleSubmit}>
+            <h3>Single Prediction</h3>
+            <form onSubmit={handleSubmit} onFocus={(e) => e.stopPropagation()}>
               <div className="form-grid">
                 {features.map(feature => (
                   <div key={feature} className="form-group">
@@ -323,23 +342,30 @@ const App = () => {
                 type="submit"
                 className="btn btn-primary"
                 disabled={loading}
+                onClick={(e) => {
+                  // Only prevent default if form is not being submitted
+                  if (loading) {
+                    e.preventDefault();
+                  }
+                }}
               >
-                {loading ? '🔄 Predicting...' : '🎯 Predict Damage'}
+                {loading ? 'Predicting...' : ' Predict Damage'}
               </button>
             </form>
           </div>
 
           {/* Batch Prediction */}
           <div className="batch-section">
-            <h3>📊 Batch Prediction</h3>
+            <h3>Batch Prediction</h3>
             <form onSubmit={handleFileUpload} className="batch-form">
               <div className="form-group">
                 <label className="form-label">Upload CSV File:</label>
                 <input
                   type="file"
                   accept=".csv"
-                  onChange={(e) => setCsvFile(e.target.files[0])}
+                  onChange={handleFileChange}
                   className="form-control file-input"
+                  onClick={(e) => e.stopPropagation()}
                 />
               </div>
               <button 
@@ -347,12 +373,12 @@ const App = () => {
                 className="btn btn-secondary"
                 disabled={loading || !csvFile}
               >
-                {loading ? '🔄 Processing...' : '📊 Predict Batch'}
+                {loading ? 'Processing...' : 'Predict Batch'}
               </button>
             </form>
 
             <div className="csv-info">
-              <h4>📋 CSV Format Requirements:</h4>
+              <h4>CSV Format Requirements:</h4>
               <p>Include these column headers:</p>
               <div className="csv-headers">
                 {importantFeatures.join(', ')}
@@ -364,7 +390,7 @@ const App = () => {
         {/* Error Display */}
         {error && (
           <div className="alert alert-error">
-            <h4>⚠️ Error:</h4>
+            <h4>Error:</h4>
             <p>{error}</p>
           </div>
         )}
@@ -372,7 +398,7 @@ const App = () => {
         {/* Single Prediction Results */}
         {prediction && (
           <div className="result-section">
-            <h3>🎯 Prediction Result</h3>
+            <h3>Prediction Result</h3>
             <div className="result-card">
               <p><strong>Predicted Damage:</strong> {prediction.prediction}</p>
               {prediction.confidence > 0 && (
@@ -386,7 +412,7 @@ const App = () => {
         {/* Batch Results */}
         {batchResults && (
           <div className="batch-results">
-            <h3>📊 Batch Prediction Results</h3>
+            <h3>Batch Prediction Results</h3>
             <p className="batch-info">
               Total Rows Processed: <strong>{batchResults.total_rows}</strong>
             </p>
@@ -417,7 +443,7 @@ const App = () => {
                 <div className="table-footer">
                   Showing first 50 results of {batchResults.predictions.length}
                 </div>
-              )}
+                )}
             </div>
           </div>
         )}
